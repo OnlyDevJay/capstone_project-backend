@@ -13,17 +13,14 @@ const cors = require("cors");
 
 // npm install cors
 
-
 app.use(
   cors({
     origin: ["https://focuset.netlify.app", "http://localhost:5173"], // allowed origins
-    methods: ["GET", "POST", "PUT", "DELETE"], // allowed HTTP methods
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"], // allowed HTTP methods
     allowedHeaders: ["Content-Type", "Authorization"], // allow bearer token header
     credentials: true, // if you want cookies or auth headers to be sent
   }),
 );
-
-
 
 app.use(morgan("dev"));
 app.use(express.json());
