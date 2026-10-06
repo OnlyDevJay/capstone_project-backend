@@ -6,6 +6,9 @@ const {
 } = require("./user_validation");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { sendUniversalMail } = require("../../utils/email.js");
+// 1. REQUEST PASSWORD RESET (FORGOT PASSWORD VIEW)
+const crypto = require("crypto"); // 🧠 CRITICAL FIX: Don't forget to import crypto!
 
 const registerNewUser = async (req, res) => {
   const { error, value } = validationForRegisterSchema.validate(req.body);
@@ -187,4 +190,109 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { registerNewUser, LoginUser, editMyProfile, changePassword };
+const passLink = async (req, res) => {
+  try {
+    const { identifier } = req.body;
+
+    if (!identifier) {
+      return res.status(400).json({ message: "Identifier is required." });
+    }
+
+    // 1. Fetch user account matching configuration parameter parameters
+    const user = await UserSchema.findOne({
+      $or: [
+        { email: identifier.trim().toLowerCase() }, // Good practice: Lowercase email lookups
+        { username: identifier.trim() },
+      ],
+    });
+
+    // 2. CRITICAL SECURITY & CRASH FIX:
+    // If user does not exist, return the same 200 success response instantly.
+    // This stops server crashes and hides valid/invalid usernames from hackers!
+    if (!user) {
+      return res.status(200).json({
+        message:
+          "If this account exists, a reset link will be sent to the registered email.",
+      });
+    }
+
+    // 3. Generate token securely
+    const token = crypto.randomBytes(32).toString("hex");
+    user.resetToken = token;
+
+    // 4. Synchronize expirations: 15 minutes validity
+    user.resetTokenExpiry = Date.now() + 15 * 60 * 1000;
+    await user.save();
+
+    // Change 'localhost:5173' to your actual production frontend URL when deploying!
+    const resetLink = `https://focuset.netlify.app/forgot-password?token=${token}`;
+
+    // 5. Fire your universal background email sender (Do NOT await!)
+    sendUniversalMail("forgetPassword", {
+      recipientEmail: user.email,
+      recipientName: user.username || user.name || "User",
+      subject: "Password Reset - PresencePro",
+      custome: resetLink, // Matches the 'custome' argument in your mailer function
+    }).catch((emailErr) => {
+      console.error(
+        "Background password delivery failed server tracking:",
+        emailErr.message,
+      );
+    });
+
+    // 6. Explicitly send response back so frontend stops spinning loading icons
+    return res.status(200).json({
+      message:
+        "If this account exists, a reset link will be sent to the registered email.",
+    });
+  } catch (err) {
+    console.error("Critical password generation route breakdown error:", err);
+    return res.status(500).json({
+      message: "Something went wrong while processing reset link request.",
+    });
+  }
+};
+
+// Reset password endpoint
+const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    // Find user with matching token and not expired
+    const user = await UserSchema.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    if (user.isDeleted === true) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user record
+    user.password = hashedPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Error resetting password:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = {
+  registerNewUser,
+  LoginUser,
+  editMyProfile,
+  changePassword,
+  passLink,
+  resetPassword,
+};

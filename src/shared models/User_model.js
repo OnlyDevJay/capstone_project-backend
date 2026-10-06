@@ -8,8 +8,10 @@ const UserSchema = new mongoose.Schema(
     username: { type: String, minlength: 2, required: true },
     phone: { type: String, minlength: 10, required: false },
     role: { type: String, required: true },
+    resetToken: { type: String, default: "N / A" },
+    resetTokenExpiry: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Users", UserSchema);
