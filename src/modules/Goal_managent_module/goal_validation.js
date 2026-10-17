@@ -2,13 +2,18 @@ const Joi = require("joi");
 
 const createGoalSchema = Joi.object({
   title: Joi.string().min(5).max(200).required().trim(),
+  description: Joi.string().max(500).allow("", null).optional(),
 
   startDate: Joi.date().required(),
   endgoal: Joi.date().greater(Joi.ref("startDate")).required().messages({
     "date.greater": "End date must be after start date",
   }),
 
-  status: Joi.string().valid("active", "inactive").default("active"),
+  frequency: Joi.string().valid("Daily", "Weekly").required(),
+
+  status: Joi.string()
+    .valid("active", "inactive", "completed")
+    .default("active"),
 
   inactiveUntil: Joi.when("status", {
     is: "inactive",
@@ -20,16 +25,9 @@ const createGoalSchema = Joi.object({
     .items(
       Joi.object({
         index: Joi.number().integer().min(0).required(),
-        name: Joi.string().min(1).required(),
+        name: Joi.string().min(1).required().trim(),
         frequency: Joi.string().valid("Daily", "Weekly").required(),
-        subscription: Joi.object({
-          endpoint: Joi.string().uri().required(),
-          expirationTime: Joi.date().allow(null), // ✅ matches Push API
-          keys: Joi.object({
-            p256dh: Joi.string().required(),
-            auth: Joi.string().required(),
-          }).required(),
-        }).required(),
+        // Subscription property completely removed as requested
       }),
     )
     .min(1)

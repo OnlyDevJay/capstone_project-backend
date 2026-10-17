@@ -14,4 +14,6 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model("Users", UserSchema);
+// Use this instead:
+module.exports = mongoose.models.Users || mongoose.model("Users", UserSchema);
+
