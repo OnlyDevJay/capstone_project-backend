@@ -1,6 +1,6 @@
 const { BrevoClient } = require("@getbrevo/brevo");
 const Goal = require("../../shared models/goal_model");
-const User = require("../../shared models/user_model");
+const User = require("../../shared models/User_model");
 
 // Initialize the correct modern client
 const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
